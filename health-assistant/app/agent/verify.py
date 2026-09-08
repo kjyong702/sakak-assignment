@@ -107,3 +107,20 @@ def inconsistent_verdicts(answer: str, context: str) -> list[str]:
                 if problem not in problems:
                     problems.append(problem)
     return problems
+
+
+_HAN = re.compile(r"[\u4e00-\u9fff]")
+_HANGUL = re.compile(r"[가-힣]")
+
+
+def foreign_language(answer: str) -> str | None:
+    """한국어 답변이 아니면 이유를 돌려준다.
+
+    qwen 계열은 긴 답변 끝에서 중국어로 넘어가는 일이 있다. 한자가 하나라도 있거나 한글이 거의 없으면 걸린다.
+    """
+    if _HAN.search(answer):
+        return "한자나 중국어가 섞임"
+    letters = [c for c in answer if c.isalpha()]
+    if letters and len(_HANGUL.findall(answer)) < len(letters) * 0.5:
+        return "한국어가 절반 미만"
+    return None

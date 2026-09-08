@@ -5,7 +5,12 @@ from app.agent.graph import build_graph
 from app.agent.health_client import HealthApiClient, PatientNotFound
 from app.agent.metrics import select_metrics, wants_history
 from app.agent.prompts import SYSTEM_PROMPT, build_prompt, render_context
-from app.agent.verify import inconsistent_verdicts, unsupported_metrics, unsupported_numbers
+from app.agent.verify import (
+    foreign_language,
+    inconsistent_verdicts,
+    unsupported_metrics,
+    unsupported_numbers,
+)
 from app.main import create_app
 from tests.fakes import FakeLLM
 
@@ -73,6 +78,12 @@ async def test_overview_context_shows_attention_and_key_metrics_only(health_clie
 
     assert "- 혈압: 125/82 mmHg -> 정상(B)" in text  # 주의 항목
     assert "- 공복혈당: 95 mg/dL -> 정상(A)" in text  # 핵심 항목
+    assert (
+        text.index("[주의 항목")
+        < text.index("- 혈압:")
+        < text.index("[정상(A) 항목]")
+        < text.index("- 공복혈당:")
+    )
     assert "- 골다공증" not in text and "- 키: 175 Cm" not in text and "- 허리둘레" not in text
     assert "그 외 정상(A) 항목: 요단백, 혈색소, 혈청 크레아티닌, 감마-GTP, 흉부 X선, 골다공증" in text
     assert "판정하지 않은 항목" not in text  # 보류 항목은 요약에서 아예 언급하지 않는다
@@ -290,3 +301,27 @@ def test_unsupported_numbers_allow_numbers_from_question():
         unsupported_numbers("혈압 125 mmHg는 130을 넘지 않습니다.", "혈압: 125/82 mmHg\n혈압이 130 넘나요?")
         == []
     )
+
+
+def test_foreign_language_catches_chinese_and_non_korean_answers():
+    assert (
+        foreign_language("감마-GTP는 성별에 따라 다릅니다. 김영희女士, 请告知我您的性别。")
+        == "한자나 중국어가 섞임"
+    )
+    assert foreign_language("Your blood pressure is 145/92 mmHg, which is high.") == "한국어가 절반 미만"
+    assert (
+        foreign_language("혈압 145/92 mmHg로 질환의심이니 진료 상담을 권합니다. ALT 52 U/L도 높습니다.")
+        is None
+    )
+
+
+async def test_graph_retries_when_answer_switches_language(health_client):
+    llm = FakeLLM(
+        "ALT 52 U/L로 질환의심입니다. 请告知我您的性别。", "ALT 52 U/L로 질환의심이니 진료 상담을 권합니다."
+    )
+    graph = build_graph(health_client, llm, default_model="fake")
+
+    result = await graph.ainvoke({"patient_id": "2", "question": "간 수치는 어떤가요?"})
+
+    assert result["attempts"] == 2 and result["verified"] is True
+    assert "중국어" in llm.calls[1]["prompt"]

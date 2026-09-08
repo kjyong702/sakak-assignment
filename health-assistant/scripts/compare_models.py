@@ -3,6 +3,7 @@
     uv run python -m scripts.compare_models                       # 기본 후보 3개
     uv run python -m scripts.compare_models --models qwen2.5:7b   # 일부만
     uv run python -m scripts.compare_models --out docs/model-comparison.md
+    uv run python -m scripts.compare_models --models qwen2.5:7b --merge   # 한 모델만 다시 돌려 합친다
 
 첫 호출은 모델을 메모리에 올리는 시간이 섞이므로 워밍업 1회를 따로 돌리고 표에서는 뺀다.
 답변의 품질(판정 준수, 한국어 자연스러움)은 사람이 읽고 판단한다. 스크립트는 재료만 만든다.
@@ -50,6 +51,7 @@ class Row:
     attempts: int
     verified: bool
     unsupported: list[str]
+    verification: str | None = None
     error: str | None = None
 
 
@@ -68,7 +70,7 @@ async def run_model(assistant, model: str) -> tuple[float | None, list[Row]]:
         try:
             result = await assistant.ask(patient_id, question, model)
         except LLMUnavailable as e:
-            rows.append(Row(model, patient_id, question, focus, "", 0, 0, 0, False, [], str(e)))
+            rows.append(Row(model, patient_id, question, focus, "", 0, 0, 0, False, [], error=str(e)))
             continue
         wall_ms = (time.perf_counter() - started) * 1000
         rows.append(
@@ -83,6 +85,7 @@ async def run_model(assistant, model: str) -> tuple[float | None, list[Row]]:
                 attempts=result.attempts,
                 verified=result.verified,
                 unsupported=unsupported_numbers(result.answer, result.context),
+                verification=result.verification,
             )
         )
         verified = "통과" if result.verified else "미통과"
@@ -134,6 +137,8 @@ def render_report(results: dict[str, tuple[float | None, list[Row]]]) -> str:
             note = f"{row.wall_ms / 1000:.1f}s, 시도 {row.attempts}회, 검증 {verified}"
             if row.unsupported:
                 note += f", 근거 없는 수치: {', '.join(row.unsupported)}"
+            if row.verification:
+                note += f", 사유: {row.verification}"
             lines += [f"**{model}** ({note})", "", "> " + row.answer.replace("\n", "\n> "), ""]
     lines += [
         "## 품질 메모",
@@ -145,12 +150,22 @@ def render_report(results: dict[str, tuple[float | None, list[Row]]]) -> str:
     return "\n".join(lines)
 
 
+def load_previous(raw: Path) -> dict[str, tuple[float | None, list[Row]]]:
+    """이전 실행의 JSON을 읽는다. 한 모델만 다시 돌려 나머지와 합칠 때 쓴다."""
+    if not raw.is_file():
+        return {}
+    data = json.loads(raw.read_text(encoding="utf-8"))
+    return {model: (entry["load_ms"], [Row(**row) for row in entry["rows"]]) for model, entry in data.items()}
+
+
 async def main(args: argparse.Namespace) -> int:
     assistant = create_app().state.assistant
-    results: dict[str, tuple[float | None, list[Row]]] = {}
+    out = Path(args.out)
+    results: dict[str, tuple[float | None, list[Row]]] = (
+        load_previous(out.with_suffix(".json")) if args.merge else {}
+    )
     for model in args.models:
         results[model] = await run_model(assistant, model)
-    out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render_report(results), encoding="utf-8")
     raw = out.with_suffix(".json")
@@ -166,4 +181,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="후보 모델 비교")
     parser.add_argument("--models", nargs="+", default=list(DEFAULT_MODELS))
     parser.add_argument("--out", default="docs/model-comparison.md")
+    parser.add_argument("--merge", action="store_true", help="이전 결과를 읽어 지정한 모델만 갈아 끼운다")
     sys.exit(asyncio.run(main(parser.parse_args())))

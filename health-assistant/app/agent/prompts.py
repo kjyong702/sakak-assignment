@@ -83,17 +83,31 @@ def render_context(data: HealthData, metric_keys: list[str], include_previous: b
             f"종합 소견: {overview.evaluation}",
         ]
         judgements = judge_all(overview, data.referenceList)
-        other_normal = []
-        for key in keys:
-            verdict = judgements[key].verdict
-            if summary and verdict is Verdict.UNKNOWN:
-                continue
-            if summary and verdict is Verdict.NORMAL_A and key not in KEY_METRICS:
-                other_normal.append(LABELS[key])
-                continue
-            lines.append(_metric_line(key, getattr(overview, key), by_type, judgements[key]))
-        if other_normal:
-            lines.append("그 외 정상(A) 항목: " + ", ".join(other_normal))
+        if summary:
+            # 주의 항목과 정상 항목을 블록으로 나눠 준다. 한 목록으로 주면 7b 모델이
+            # 정상(B) 항목을 "모두 정상(A)"로 묶어 버리는 일이 잦았다.
+            # 묶을 대상을 물리적으로 떼어 놓는 편이 규칙보다 잘 듣는다
+            attention, normal, other_normal = [], [], []
+            for key in keys:
+                verdict = judgements[key].verdict
+                if verdict is Verdict.UNKNOWN:
+                    continue
+                line = _metric_line(key, getattr(overview, key), by_type, judgements[key])
+                if verdict is not Verdict.NORMAL_A:
+                    attention.append(line)
+                elif key in KEY_METRICS:
+                    normal.append(line)
+                else:
+                    other_normal.append(LABELS[key])
+            lines.append("[주의 항목: 정상(B)나 질환의심. 먼저 말할 것]")
+            lines += attention or ["- 없음"]
+            lines.append("[정상(A) 항목]")
+            lines += normal
+            if other_normal:
+                lines.append("- 그 외 정상(A) 항목: " + ", ".join(other_normal))
+        else:
+            for key in keys:
+                lines.append(_metric_line(key, getattr(overview, key), by_type, judgements[key]))
         # 판정하지 않은 항목(unjudged)은 요약에 적지 않는다. 적어 주면 모델이 그것을 설명하느라
         # 문장을 낭비하고 성별 이야기를 지어냈다. 직접 물으면 성별별 판정까지 그대로 보여 준다
     if no_previous:
