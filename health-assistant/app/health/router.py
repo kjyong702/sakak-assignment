@@ -1,5 +1,7 @@
 """GET /api/health/{patientId}"""
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
@@ -13,13 +15,16 @@ def get_repository(request: Request) -> PatientRepository:
     return request.app.state.repository
 
 
+Repository = Annotated[PatientRepository, Depends(get_repository)]
+
+
 @router.get(
     "/{patient_id}",
     response_model=HealthResponse,
     response_model_exclude_none=True,
     responses={404: {"description": "환자 없음"}},
 )
-def get_health(patient_id: str, repo: PatientRepository = Depends(get_repository)):
+def get_health(patient_id: str, repo: Repository):
     data = repo.get(patient_id)
     if data is None:
         return JSONResponse(

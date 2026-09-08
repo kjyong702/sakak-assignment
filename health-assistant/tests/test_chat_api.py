@@ -1,5 +1,4 @@
 import httpx
-import pytest
 
 from app.agent.llm import LLMUnavailable
 from app.agent.service import AnswerResult
@@ -14,7 +13,9 @@ class DownLLM:
 
 
 async def post_chat(llm, payload):
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=create_app(llm=llm)), base_url="http://test") as c:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=create_app(llm=llm)), base_url="http://test"
+    ) as c:
         return await c.post("/api/chat", json=payload)
 
 

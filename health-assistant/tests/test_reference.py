@@ -35,7 +35,9 @@ def test_parse_range_and_alternatives():
 
 
 def test_parse_exclusive_range_with_negative_numbers():
-    assert parse_condition("-1~-2.5 초과") == [Interval(lo=-2.5, hi=-1, lo_inclusive=False, hi_inclusive=False)]
+    assert parse_condition("-1~-2.5 초과") == [
+        Interval(lo=-2.5, hi=-1, lo_inclusive=False, hi_inclusive=False)
+    ]
     assert parse_condition("T-score -1 이상") == [Interval(lo=-1)]
 
 

@@ -22,7 +22,13 @@ async def test_generate_calls_api_generate_without_streaming():
         seen["body"] = json.loads(request.content)
         return httpx.Response(
             200,
-            json={"model": "qwen2.5:7b", "response": " 답변입니다. ", "total_duration": 1_500_000_000, "eval_count": 42, "done": True},
+            json={
+                "model": "qwen2.5:7b",
+                "response": " 답변입니다. ",
+                "total_duration": 1_500_000_000,
+                "eval_count": 42,
+                "done": True,
+            },
         )
 
     result = await make_client(handler).generate("질문", system="규칙")

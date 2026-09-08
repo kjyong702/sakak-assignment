@@ -35,7 +35,11 @@ def get_assistant(request: Request) -> HealthAssistant:
     return request.app.state.assistant
 
 
-@router.post("", response_model=ChatResponse, responses={404: {"description": "환자 없음"}, 503: {"description": "LLM 사용 불가"}})
+@router.post(
+    "",
+    response_model=ChatResponse,
+    responses={404: {"description": "환자 없음"}, 503: {"description": "LLM 사용 불가"}},
+)
 async def chat(body: ChatRequest, request: Request):
     assistant = get_assistant(request)
     try:

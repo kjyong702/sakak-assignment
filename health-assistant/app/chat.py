@@ -1,8 +1,8 @@
 """터미널 대화. 서버를 따로 띄우지 않고 앱을 직접 만들어 그래프를 돌린다.
 
-    uv run python -m app.chat                       # 환자 1, 기본 모델, 대화 모드
-    uv run python -m app.chat --patient 2 --model gemma3:4b
-    uv run python -m app.chat -q "콜레스테롤 수치가 어때요?"   # 한 번만 묻고 종료
+uv run python -m app.chat                       # 환자 1, 기본 모델, 대화 모드
+uv run python -m app.chat --patient 2 --model gemma3:4b
+uv run python -m app.chat -q "콜레스테롤 수치가 어때요?"   # 한 번만 묻고 종료
 """
 
 from __future__ import annotations
@@ -20,10 +20,11 @@ from app.main import create_app
 def format_result(result: AnswerResult) -> str:
     metrics = ", ".join(result.metric_keys) if result.metric_keys else "전체"
     verified = "통과" if result.verified else "미통과"
-    return (
-        f"답변: {result.answer}\n"
-        f"(항목: {metrics} / 검증: {verified} / 시도 {result.attempts}회 / 모델 {result.model} / LLM {result.llm_ms / 1000:.1f}초)"
+    meta = (
+        f"항목: {metrics} / 검증: {verified} / 시도 {result.attempts}회 / "
+        f"모델 {result.model} / LLM {result.llm_ms / 1000:.1f}초"
     )
+    return f"답변: {result.answer}\n({meta})"
 
 
 async def ask_and_print(assistant: HealthAssistant, patient_id: str, question: str, model: str | None) -> int:

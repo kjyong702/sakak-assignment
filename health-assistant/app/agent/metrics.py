@@ -40,7 +40,19 @@ METRICS: tuple[Metric, ...] = (
 LABELS = {m.key: m.label for m in METRICS}
 
 # 이전 검진과 비교해 달라는 뜻으로 읽는 말
-HISTORY_WORDS = ("이전", "지난번", "지난 번", "예전", "작년", "변화", "추이", "비교", "달라", "좋아졌", "나빠졌")
+HISTORY_WORDS = (
+    "이전",
+    "지난번",
+    "지난 번",
+    "예전",
+    "작년",
+    "변화",
+    "추이",
+    "비교",
+    "달라",
+    "좋아졌",
+    "나빠졌",
+)
 
 
 def _matches(question: str, keyword: str) -> bool:

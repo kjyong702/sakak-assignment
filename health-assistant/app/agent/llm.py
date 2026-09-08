@@ -55,13 +55,15 @@ class OllamaGenerateClient:
             )
         except httpx.ConnectError as e:
             raise LLMUnavailable(
-                f"Ollama 서버({self._base_url})에 연결할 수 없습니다. 'ollama serve'가 실행 중인지 확인하세요."
+                f"Ollama 서버({self._base_url})에 연결할 수 없습니다. "
+                "'ollama serve'가 실행 중인지 확인하세요."
             ) from e
         except httpx.TimeoutException as e:
             raise LLMUnavailable(f"Ollama 응답이 {self._timeout:.0f}초 안에 오지 않았습니다.") from e
+        model_name = payload["model"]
         if response.status_code == 404:
             raise LLMUnavailable(
-                f"모델을 찾을 수 없습니다: {payload['model']}. 'ollama pull {payload['model']}'로 받으세요."
+                f"모델을 찾을 수 없습니다: {model_name}. 'ollama pull {model_name}'로 받으세요."
             )
         response.raise_for_status()
         body = response.json()

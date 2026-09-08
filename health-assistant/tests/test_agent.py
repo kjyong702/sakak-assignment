@@ -12,12 +12,18 @@ from tests.fakes import FakeLLM
 
 @pytest.fixture
 async def health_client():
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=create_app()), base_url="http://test") as http:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=create_app()), base_url="http://test"
+    ) as http:
         yield HealthApiClient(http)
 
 
 def test_select_metrics_by_keyword():
-    assert select_metrics("콜레스테롤 수치가 어때요?") == ["totalCholesterol", "HDLCholesterol", "LDLCholesterol"]
+    assert select_metrics("콜레스테롤 수치가 어때요?") == [
+        "totalCholesterol",
+        "HDLCholesterol",
+        "LDLCholesterol",
+    ]
     assert select_metrics("간 수치 괜찮나요?") == ["AST", "ALT", "yGPT"]
     assert select_metrics("혈압이랑 혈당 괜찮아요?") == ["bloodPressure", "fastingBloodGlucose"]
     assert select_metrics("LDL이 높은가요") == ["LDLCholesterol"]

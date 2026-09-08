@@ -85,13 +85,26 @@ async def run_model(assistant, model: str) -> tuple[float | None, list[Row]]:
                 unsupported=unsupported_numbers(result.answer, result.context),
             )
         )
-        print(f"[{model}] {question} -> {wall_ms / 1000:.1f}s, 시도 {result.attempts}, 검증 {'통과' if result.verified else '미통과'}", file=sys.stderr)
+        verified = "통과" if result.verified else "미통과"
+        print(
+            f"[{model}] {question} -> {wall_ms / 1000:.1f}s, 시도 {result.attempts}, 검증 {verified}",
+            file=sys.stderr,
+        )
     return load_ms, rows
 
 
 def render_report(results: dict[str, tuple[float | None, list[Row]]]) -> str:
-    lines = ["# 모델 비교", "", "같은 질문 6개를 후보 모델에 돌린 결과. 수치는 실측이고 품질 판단은 아래 표 다음의 메모에 적는다.", ""]
-    lines += ["## 요약", "", "| 모델 | 첫 호출(로딩 포함) | 평균 LLM 시간 | 평균 전체 시간 | 검증 통과 | 재생성 | 근거 없는 수치 |", "|---|---|---|---|---|---|---|"]
+    lines = [
+        "# 모델 비교",
+        "",
+        "같은 질문 6개를 후보 모델에 돌린 결과. 수치는 실측이고 품질 판단은 아래 표 다음의 메모에 적는다.",
+        "",
+        "## 요약",
+        "",
+        "| 모델 | 첫 호출(로딩 포함) | 평균 LLM 시간 | 평균 전체 시간 "
+        "| 검증 통과 | 재생성 | 근거 없는 수치 |",
+        "|---|---|---|---|---|---|---|",
+    ]
     for model, (load_ms, rows) in results.items():
         if not rows:
             lines.append(f"| {model} | 실행 실패 | | | | | |")
@@ -103,7 +116,10 @@ def render_report(results: dict[str, tuple[float | None, list[Row]]]) -> str:
         retries = sum(r.attempts - 1 for r in ok)
         bad = sum(len(r.unsupported) for r in ok)
         load = f"{load_ms / 1000:.1f}s" if load_ms is not None else "-"
-        lines.append(f"| {model} | {load} | {avg_llm:.1f}s | {avg_wall:.1f}s | {verified}/{len(ok)} | {retries} | {bad} |")
+        lines.append(
+            f"| {model} | {load} | {avg_llm:.1f}s | {avg_wall:.1f}s "
+            f"| {verified}/{len(ok)} | {retries} | {bad} |"
+        )
     lines += ["", "## 질문별 답변", ""]
     for i, (patient_id, question, focus) in enumerate(QUESTIONS, 1):
         lines += [f"### {i}. 환자 {patient_id}: {question}", "", f"보는 점: {focus}", ""]
@@ -114,11 +130,18 @@ def render_report(results: dict[str, tuple[float | None, list[Row]]]) -> str:
             if row.error:
                 lines += [f"**{model}**: 실패 ({row.error})", ""]
                 continue
-            note = f"{row.wall_ms / 1000:.1f}s, 시도 {row.attempts}회, 검증 {'통과' if row.verified else '미통과'}"
+            verified = "통과" if row.verified else "미통과"
+            note = f"{row.wall_ms / 1000:.1f}s, 시도 {row.attempts}회, 검증 {verified}"
             if row.unsupported:
                 note += f", 근거 없는 수치: {', '.join(row.unsupported)}"
             lines += [f"**{model}** ({note})", "", "> " + row.answer.replace("\n", "\n> "), ""]
-    lines += ["## 품질 메모", "", "(답변을 읽고 적는다: 판정을 따랐는가, 단위를 인용했는가, 진단을 단정하지 않았는가, 한국어가 자연스러운가)", ""]
+    lines += [
+        "## 품질 메모",
+        "",
+        "(답변을 읽고 적는다: 판정을 따랐는가, 단위를 인용했는가, 진단을 단정하지 않았는가, "
+        "한국어가 자연스러운가)",
+        "",
+    ]
     return "\n".join(lines)
 
 
@@ -131,10 +154,10 @@ async def main(args: argparse.Namespace) -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render_report(results), encoding="utf-8")
     raw = out.with_suffix(".json")
-    raw.write_text(
-        json.dumps({m: {"load_ms": load, "rows": [asdict(r) for r in rows]} for m, (load, rows) in results.items()}, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    payload = {
+        model: {"load_ms": load, "rows": [asdict(r) for r in rows]} for model, (load, rows) in results.items()
+    }
+    raw.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"보고서: {out}\n원본: {raw}")
     return 0 if any(rows for _, rows in results.values()) else 1
 

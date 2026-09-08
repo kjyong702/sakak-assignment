@@ -23,7 +23,9 @@ class AnswerResult:
 
 
 class HealthAssistant:
-    def __init__(self, health: HealthApiClient, llm: LLMClient, default_model: str, max_attempts: int = 2) -> None:
+    def __init__(
+        self, health: HealthApiClient, llm: LLMClient, default_model: str, max_attempts: int = 2
+    ) -> None:
         self.default_model = default_model
         self._graph = build_graph(health, llm, default_model, max_attempts)
 

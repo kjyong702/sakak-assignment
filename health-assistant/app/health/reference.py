@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
-from app.health.models import Overview, Reference
+from app.health.models import METRIC_KEYS, Overview, Reference
 
 
-class Verdict(str, Enum):
+class Verdict(StrEnum):
     NORMAL_A = "정상(A)"
     NORMAL_B = "정상(B)"
     SUSPICIOUS = "질환의심"
@@ -26,8 +26,20 @@ JUDGE_ORDER = (Verdict.SUSPICIOUS, Verdict.NORMAL_B, Verdict.NORMAL_A)
 # 수치 비교로 판정하는 항목. 골다공증은 "T-score -0.8"에서 숫자만 뽑아 쓴다
 NUMERIC_METRICS = frozenset(
     {
-        "waists", "BMI", "hemoglobin", "fastingBloodGlucose", "totalCholesterol", "HDLCholesterol",
-        "triglyceride", "LDLCholesterol", "serumCreatinine", "GFR", "AST", "ALT", "yGPT", "osteoporosis",
+        "waists",
+        "BMI",
+        "hemoglobin",
+        "fastingBloodGlucose",
+        "totalCholesterol",
+        "HDLCholesterol",
+        "triglyceride",
+        "LDLCholesterol",
+        "serumCreatinine",
+        "GFR",
+        "AST",
+        "ALT",
+        "yGPT",
+        "osteoporosis",
     }
 )
 GENDERS = ("남", "여")
@@ -135,8 +147,6 @@ def judge(metric: str, value: str, references: dict[str, Reference]) -> Judgemen
 
 def judge_all(overview: Overview, references: list[Reference]) -> dict[str, Judgement]:
     by_type = {r.refType: r for r in references}
-    from app.health.models import METRIC_KEYS
-
     return {key: judge(key, getattr(overview, key), by_type) for key in METRIC_KEYS}
 
 
@@ -164,9 +174,7 @@ def _judge_numeric(metric: str, value: str, references: dict[str, Reference]) ->
         return Judgement(_first_match(x, {v: r[ANY] for v, r in rules.items()}))
 
     # 성별 분기가 있는 항목. 환자 성별을 모르므로 남녀 판정이 같을 때만 확정한다
-    by_gender = {
-        g: _first_match(x, {v: r.get(g, r.get(ANY, [])) for v, r in rules.items()}) for g in GENDERS
-    }
+    by_gender = {g: _first_match(x, {v: r.get(g, r.get(ANY, [])) for v, r in rules.items()}) for g in GENDERS}
     if len(set(by_gender.values())) == 1:
         return Judgement(by_gender["남"], by_gender=by_gender)
     detail = ", ".join(f"{g} {v.value}" for g, v in by_gender.items())
