@@ -18,4 +18,9 @@ def next_term(term: str) -> str:
 
 def middle_two(n: int) -> str:
     """n번째 항의 가운데 두 자리"""
-    raise NotImplementedError
+    term = "1"
+    for _ in range(n - 1):
+        term = next_term(term)
+
+    mid = len(term) // 2
+    return term[mid - 1 : mid + 1]
