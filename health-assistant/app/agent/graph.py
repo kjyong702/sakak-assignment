@@ -15,7 +15,7 @@ from app.agent.llm import LLMClient
 from app.agent.metrics import select_metrics, wants_history
 from app.agent.prompts import SYSTEM_PROMPT, build_prompt, render_context
 from app.agent.state import AgentState
-from app.agent.verify import unsupported_numbers
+from app.agent.verify import inconsistent_verdicts, unsupported_metrics, unsupported_numbers
 
 
 def build_graph(health: HealthApiClient, llm: LLMClient, default_model: str, max_attempts: int = 2):
@@ -44,9 +44,15 @@ def build_graph(health: HealthApiClient, llm: LLMClient, default_model: str, max
         answer = state.get("answer", "")
         if not answer.strip():
             return {"verified": False, "verification": "빈 답변"}
-        bad = unsupported_numbers(answer, state["context"])
-        if bad:
-            return {"verified": False, "verification": ", ".join(bad)}
+        reasons = []
+        if bad_numbers := unsupported_numbers(answer, state["context"]):
+            reasons.append("데이터에 없는 수치: " + ", ".join(bad_numbers))
+        if bad_metrics := unsupported_metrics(answer, state.get("metric_keys", [])):
+            reasons.append("질문과 무관해 데이터에 없는 항목: " + ", ".join(bad_metrics))
+        if bad_verdicts := inconsistent_verdicts(answer, state["context"]):
+            reasons.append("판정 불일치: " + ", ".join(bad_verdicts))
+        if reasons:
+            return {"verified": False, "verification": "; ".join(reasons)}
         return {"verified": True, "verification": None}
 
     def after_verify(state: AgentState) -> str:

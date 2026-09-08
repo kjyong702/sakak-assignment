@@ -56,7 +56,7 @@ async def test_chat_rejects_empty_question():
 
 
 def test_format_result_shows_verification_and_timing():
-    result = AnswerResult("답", "홍길동", "2025-08-15", [], True, 1, "qwen2.5:7b", 8300.0, "ctx")
+    result = AnswerResult("답", "홍길동", "2025-08-15", [], True, None, 1, "qwen2.5:7b", 8300.0, "ctx")
 
     text = format_result(result)
 

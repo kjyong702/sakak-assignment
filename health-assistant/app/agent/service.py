@@ -16,6 +16,7 @@ class AnswerResult:
     checkup_date: str | None
     metric_keys: list[str]
     verified: bool
+    verification: str | None
     attempts: int
     model: str
     llm_ms: float
@@ -41,6 +42,7 @@ class HealthAssistant:
             checkup_date=latest.checkupDate if latest else None,
             metric_keys=state["metric_keys"],
             verified=state["verified"],
+            verification=state.get("verification"),
             attempts=state["attempts"],
             model=state["model"],
             llm_ms=state["llm_ms"],

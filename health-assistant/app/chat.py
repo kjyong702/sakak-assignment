@@ -19,7 +19,7 @@ from app.main import create_app
 
 def format_result(result: AnswerResult) -> str:
     metrics = ", ".join(result.metric_keys) if result.metric_keys else "전체"
-    verified = "통과" if result.verified else "미통과"
+    verified = "통과" if result.verified else f"미통과 ({result.verification})"
     meta = (
         f"항목: {metrics} / 검증: {verified} / 시도 {result.attempts}회 / "
         f"모델 {result.model} / LLM {result.llm_ms / 1000:.1f}초"
