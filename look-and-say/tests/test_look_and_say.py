@@ -1,3 +1,5 @@
+import pytest
+
 from look_and_say.naive import middle_two, next_term
 
 
@@ -14,3 +16,14 @@ def test_next_term_follows_the_table():
 def test_middle_two_matches_the_examples():
     assert middle_two(5) == "12"
     assert middle_two(8) == "21"
+
+
+def test_middle_two_at_the_smallest_n():
+    assert middle_two(4) == "21"  # L4 = 1211
+
+
+def test_middle_two_rejects_n_outside_the_problem_range():
+    with pytest.raises(ValueError):
+        middle_two(3)
+    with pytest.raises(ValueError):
+        middle_two(100)
