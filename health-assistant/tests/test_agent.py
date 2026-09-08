@@ -32,11 +32,25 @@ def test_select_metrics_by_keyword():
 def test_select_metrics_returns_nothing_for_overview_questions():
     assert select_metrics("최근 건강검진 결과는 어때요?") == []
     assert select_metrics("시간이 없어서 짧게 알려주세요") == []  # '시간'의 '간'은 간이 아니다
+    assert select_metrics("간단하게 요약해 주세요") == []  # '간단'도 간이 아니다
+    assert select_metrics("눈에 띄는 이상이 있나요?") == []
+    assert select_metrics("키워드로 정리해 주세요") == []
+
+
+def test_single_syllable_keywords_match_with_particles():
+    assert select_metrics("간은 괜찮나요?") == ["AST", "ALT", "yGPT"]
+    assert select_metrics("키가 몇이에요?") == ["height"]
+    assert select_metrics("신장 기능은 괜찮나요?") == ["serumCreatinine", "GFR"]
 
 
 def test_wants_history():
     assert wants_history("작년보다 좋아졌나요?")
+    assert wants_history("콜레스테롤이 높아졌나요?")
+    assert wants_history("지난 검진 결과는요?")
     assert not wants_history("혈압 어때요?")
+    assert not wants_history("혈압 수치 좀 알려달라")
+    assert not wants_history("정상 범위와 비교하면 어때요?")
+    assert not wants_history("생활 습관 변화가 필요한가요?")
 
 
 async def test_render_context_marks_values_units_and_verdicts(health_client):
@@ -214,3 +228,65 @@ def test_inconsistent_verdicts_applies_shared_verdict_to_listed_items():
     assert inconsistent_verdicts(excluded, context) == []
     mixed = "혈압 125/82 mmHg는 정상(B)이고 공복혈당 95 mg/dL는 정상(A)입니다."
     assert inconsistent_verdicts(mixed, context) == []
+
+
+def test_inconsistent_verdicts_accepts_either_checkup_when_previous_is_included():
+    context = (
+        "[최근 검진] 검진일 2025-08-15\n- 혈압: 145/92 mmHg -> 질환의심\n\n"
+        "[이전 검진] 검진일 2024-08-10\n- 혈압: 138/88 mmHg -> 정상(B)"
+    )
+
+    assert inconsistent_verdicts("혈압 145/92 mmHg로 질환의심이니 진료 상담을 권합니다.", context) == []
+    assert (
+        inconsistent_verdicts(
+            "최근 혈압 145/92 mmHg는 질환의심이고, 이전 혈압 138/88 mmHg는 정상(B)였습니다.", context
+        )
+        == []
+    )
+    assert inconsistent_verdicts("혈압 145/92 mmHg로 정상(A)입니다.", context) == [
+        "혈압: 답변 정상(A), 데이터 정상(B)/질환의심"
+    ]
+
+
+async def test_graph_does_not_reject_correct_answer_about_previous_checkup(health_client):
+    llm = FakeLLM("최근 혈압 145/92 mmHg는 질환의심이고 이전 혈압 138/88 mmHg는 정상(B)였습니다.")
+    graph = build_graph(health_client, llm, default_model="fake")
+
+    result = await graph.ainvoke({"patient_id": "2", "question": "작년과 비교해서 혈압이 어떻게 달라졌나요?"})
+
+    assert result["include_previous"] is True
+    assert result["attempts"] == 1 and result["verified"] is True
+
+
+async def test_history_question_for_single_checkup_patient_says_no_previous(health_client):
+    data = await health_client.get("1")
+
+    text = render_context(data, ["bloodPressure"], include_previous=True)
+
+    assert "이전 검진 기록: 없음" in text
+
+
+def test_unsupported_metrics_ignores_lifestyle_words():
+    assert (
+        unsupported_metrics(
+            "혈압이 약간 높은 편이니 체중 관리와 염분 섭취 조절을 권합니다.", ["bloodPressure"]
+        )
+        == []
+    )
+
+
+def test_inconsistent_verdicts_ignores_reference_citations():
+    context = (
+        "- 혈압: 125/82 mmHg -> 정상(B) (참고치: 정상(A) 120미만 이며/80미만 / 정상(B) 120-139 또는 /80-89)"
+    )
+
+    assert (
+        inconsistent_verdicts("혈압 125/82 mmHg는 정상(A) 120미만 기준을 넘어 정상(B)입니다.", context) == []
+    )
+
+
+def test_unsupported_numbers_allow_numbers_from_question():
+    assert (
+        unsupported_numbers("혈압 125 mmHg는 130을 넘지 않습니다.", "혈압: 125/82 mmHg\n혈압이 130 넘나요?")
+        == []
+    )

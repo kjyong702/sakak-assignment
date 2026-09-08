@@ -11,14 +11,22 @@ class PatientNotFound(LookupError):
         self.patient_id = patient_id
 
 
+class HealthApiError(RuntimeError):
+    """404 이외의 실패. 데이터 파일 손상이나 API 장애."""
+
+
 class HealthApiClient:
     def __init__(self, http: httpx.AsyncClient) -> None:
         # base_url은 http 클라이언트가 가진다. 테스트는 ASGITransport로 서버 없이 같은 경로를 탄다
         self._http = http
 
     async def get(self, patient_id: str) -> HealthData:
-        response = await self._http.get(f"/api/health/{patient_id}")
+        try:
+            response = await self._http.get(f"/api/health/{patient_id}")
+        except httpx.TransportError as e:
+            raise HealthApiError(f"건강 데이터 API에 연결하지 못했습니다 ({type(e).__name__})") from e
         if response.status_code == 404:
             raise PatientNotFound(patient_id)
-        response.raise_for_status()
+        if response.status_code >= 400:
+            raise HealthApiError(f"건강 데이터 API 오류 (HTTP {response.status_code})")
         return HealthResponse.model_validate(response.json()).data

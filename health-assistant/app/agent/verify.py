@@ -9,7 +9,11 @@ import re
 from app.agent.metrics import LABELS, METRICS
 
 _NUMBER = re.compile(r"\d+(?:\.\d+)?")
-_VERDICT = re.compile(r"정상\(A\)|정상\(B\)|질환의심")
+# 생활 습관 권고에 자연스럽게 나오는 말은 무관 항목 검사에서 뺀다.
+# "체중 관리를 권합니다"는 몸무게 항목을 언급한 것이 아니다
+LIFESTYLE_WORDS = frozenset({"체중", "몸무게", "비만", "복부", "허리", "신장", "키", "뼈"})
+# 판정 말. 바로 뒤에 숫자가 오면 "정상(A) 120미만"처럼 참고치를 인용한 것이라 판정 말로 보지 않는다
+_VERDICT = re.compile(r"(?:정상\(A\)|정상\(B\)|질환의심)(?!\s*\d)")
 # 판정 이름 없이 표현만 쓴 문장도 대조한다. 프롬프트가 정상(B)를 "약간 높은(낮은) 편",
 # 질환의심을 "진료 상담이 필요한 수치"로 쓰라고 정했으므로 그 표현을 판정으로 되읽는다
 _PHRASES = (("약간 높", "정상(B)"), ("약간 낮", "정상(B)"), ("진료 상담이 필요한 수치", "질환의심"))
@@ -48,7 +52,7 @@ def unsupported_metrics(answer: str, allowed_keys: list[str]) -> list[str]:
     words: dict[str, set[str]] = {}
     for metric in METRICS:
         for word in (metric.label, *metric.keywords):
-            if len(word) > 1:
+            if len(word) > 1 and word not in LIFESTYLE_WORDS:
                 words.setdefault(word.lower(), set()).add(metric.key)
     bad = []
     for word, keys in words.items():
@@ -57,9 +61,16 @@ def unsupported_metrics(answer: str, allowed_keys: list[str]) -> list[str]:
     return bad
 
 
-def context_verdicts(context: str) -> dict[str, str]:
-    """컨텍스트의 '- 항목: 값 -> 판정' 줄에서 항목별 판정을 읽는다."""
-    return {m["label"]: m["verdict"] for m in _CONTEXT_LINE.finditer(context)}
+def context_verdicts(context: str) -> dict[str, set[str]]:
+    """컨텍스트의 '- 항목: 값 -> 판정' 줄에서 항목별 판정을 읽는다.
+
+    이전 검진이 같이 들어가면 한 항목에 판정이 둘일 수 있다. 답변이 어느 검진의 판정을 말하는지
+    구분하지 않고 둘 중 하나와 맞으면 통과시킨다. 그래야 두 시점을 비교하는 답변을 오탐하지 않는다.
+    """
+    verdicts: dict[str, set[str]] = {}
+    for m in _CONTEXT_LINE.finditer(context):
+        verdicts.setdefault(m["label"], set()).add(m["verdict"])
+    return verdicts
 
 
 def _said_verdict(window: str) -> str | None:
@@ -91,8 +102,8 @@ def inconsistent_verdicts(answer: str, context: str) -> list[str]:
         for i, (start, label) in enumerate(positions):
             end = positions[i + 1][0] if i + 1 < len(positions) else len(sentence)
             said = _said_verdict(sentence[start + len(label) : end]) or shared
-            if said and said != expected[label]:
-                problem = f"{label}: 답변 {said}, 데이터 {expected[label]}"
+            if said and said not in expected[label]:
+                problem = f"{label}: 답변 {said}, 데이터 {'/'.join(sorted(expected[label]))}"
                 if problem not in problems:
                     problems.append(problem)
     return problems

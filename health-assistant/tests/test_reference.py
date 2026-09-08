@@ -140,3 +140,14 @@ def test_judge_all_patient_1_is_normal_except_gender_dependent_and_unreferenced(
     for key, judgement in verdicts.items():
         if key not in unknown_ok and key != "bloodPressure":
             assert judgement.verdict == Verdict.NORMAL_A, key
+
+
+def test_values_between_reference_ranges_get_a_reason(references):
+    gap = judge("LDLCholesterol", "148", references)  # 정상(B) 130-139와 질환의심 160이상 사이
+    assert gap.verdict == Verdict.UNKNOWN and gap.note == "참고 범위 사이의 값"
+
+    decimal = judge("ALT", "35.5", references)  # 35이하와 36-45 사이
+    assert decimal.verdict == Verdict.UNKNOWN and decimal.note == "참고 범위 사이의 값"
+
+    both_unknown = judge("waists", "84", references)  # 남 90이상 / 여 85이상 어느 쪽도 아님
+    assert both_unknown.verdict == Verdict.UNKNOWN and both_unknown.note == "참고 범위 사이의 값"

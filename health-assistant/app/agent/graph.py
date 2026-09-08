@@ -45,7 +45,8 @@ def build_graph(health: HealthApiClient, llm: LLMClient, default_model: str, max
         if not answer.strip():
             return {"verified": False, "verification": "빈 답변"}
         reasons = []
-        if bad_numbers := unsupported_numbers(answer, state["context"]):
+        # 질문에 나온 숫자("130 넘나요?")를 답변이 되풀이하는 것은 환각이 아니다
+        if bad_numbers := unsupported_numbers(answer, state["context"] + "\n" + state["question"]):
             reasons.append("데이터에 없는 수치: " + ", ".join(bad_numbers))
         if bad_metrics := unsupported_metrics(answer, state.get("metric_keys", [])):
             reasons.append("질문과 무관해 데이터에 없는 항목: " + ", ".join(bad_metrics))

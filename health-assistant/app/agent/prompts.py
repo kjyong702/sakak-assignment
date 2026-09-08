@@ -12,8 +12,8 @@ SYSTEM_RULES = (
     "판정은 각 항목에 붙은 판정 결과를 그대로 따르고 범위를 다시 계산하지 않습니다. "
     "정상(A)는 정상, 정상(B)는 경계 범위(약간 높거나 낮은 편), "
     "질환의심은 진료 상담이 필요한 상태입니다.",
-    "판정 없음은 괜찮다는 뜻이 아니라 판정을 못 한 것입니다. 그 항목을 직접 물으면 "
-    "성별 정보가 필요해 판정하지 못했다고 말하고 성별별 판정을 알려 줍니다.",
+    "판정 없음은 괜찮다는 뜻이 아니라 판정을 못 한 것입니다. 괄호 안의 이유를 그대로 말합니다. "
+    "성별에 따라 다르다고 적힌 항목만 성별 정보가 필요하다고 말하고 성별별 판정을 알려 줍니다.",
     "전체 결과를 물으면 검진일을 먼저 말하고, 정상(B)와 질환의심 항목을 값과 함께 먼저 말한 뒤, "
     "정상인 항목은 '[항목] [값 단위], [항목] [값 단위]는 정상입니다'처럼 한 문장으로 묶습니다. "
     "정상 항목 사이에 '다만'이나 '이지만'을 쓰지 않습니다.",
@@ -67,6 +67,7 @@ def render_context(data: HealthData, metric_keys: list[str], include_previous: b
     if not overviews:
         return f"환자 이름: {data.patientName}\n검진 기록이 없습니다."
     chosen = overviews[:2] if include_previous else overviews[:1]
+    no_previous = include_previous and len(overviews) == 1
     keys = list(metric_keys) or list(METRIC_KEYS)
     summary = not metric_keys
     by_type = {r.refType: r for r in data.referenceList}
@@ -95,6 +96,8 @@ def render_context(data: HealthData, metric_keys: list[str], include_previous: b
             lines.append("그 외 정상(A) 항목: " + ", ".join(other_normal))
         # 판정하지 않은 항목(unjudged)은 요약에 적지 않는다. 적어 주면 모델이 그것을 설명하느라
         # 문장을 낭비하고 성별 이야기를 지어냈다. 직접 물으면 성별별 판정까지 그대로 보여 준다
+    if no_previous:
+        lines += ["", "이전 검진 기록: 없음. 비교할 이전 검진이 없으므로 변화를 말할 수 없다"]
     lines += [
         "",
         "판정 기준: 정상(A)는 정상, 정상(B)는 경계 범위라 생활 습관 주의, 질환의심은 진료 상담 필요. "

@@ -33,6 +33,7 @@ async def test_chat_answers_with_metadata():
     assert body["metrics"] == ["totalCholesterol", "HDLCholesterol", "LDLCholesterol"]
     assert body["verified"] is True and body["attempts"] == 1
     assert body["model"] == "fake-model"  # 요청의 모델이 그대로 LLM에 전달된다
+    assert body["verification"] is None
 
 
 async def test_chat_unknown_patient_is_404():
@@ -62,3 +63,20 @@ def test_format_result_shows_verification_and_timing():
 
     assert text.startswith("답변: 답\n")
     assert "항목: 전체" in text and "검증: 통과" in text and "LLM 8.3초" in text
+
+
+async def test_chat_reports_verification_reason_when_answer_stays_wrong():
+    response = await post_chat(
+        FakeLLM("공복혈당 95 mg/dL은 정상(B)입니다."), {"patientId": "1", "question": "혈당 어때요?"}
+    )
+
+    body = response.json()
+    assert body["verified"] is False and body["attempts"] == 2
+    assert "공복혈당" in body["verification"]
+
+
+async def test_chat_rejects_blank_question_and_bad_model_name():
+    assert (await post_chat(FakeLLM("x"), {"patientId": "1", "question": "   "})).status_code == 422
+    assert (
+        await post_chat(FakeLLM("x"), {"patientId": "1", "question": "혈압?", "model": "../evil; rm"})
+    ).status_code == 422

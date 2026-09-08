@@ -44,6 +44,7 @@ NUMERIC_METRICS = frozenset(
 )
 GENDERS = ("남", "여")
 ANY = "*"
+BETWEEN_RANGES = "참고 범위 사이의 값"
 
 _NUM = r"-?\d+(?:\.\d+)?"
 _BOUND = re.compile(rf"^({_NUM})\s*(미만|이하|이상|초과)$")
@@ -171,12 +172,19 @@ def _judge_numeric(metric: str, value: str, references: dict[str, Reference]) ->
     if all(not any(r.values()) for r in rules.values()):
         return Judgement(Verdict.UNKNOWN, "참고 범위가 없는 항목")
     if all(set(r) == {ANY} for r in rules.values()):
-        return Judgement(_first_match(x, {v: r[ANY] for v, r in rules.items()}))
+        verdict = _first_match(x, {v: r[ANY] for v, r in rules.items()})
+        if verdict is Verdict.UNKNOWN:
+            # 참고치 표에 빈 구간이 있다 (LDL 140~159, 소수점 경계 등). 사유 없는 판정 없음은
+            # 프롬프트가 성별 문제로 오해하므로 이유를 붙인다
+            return Judgement(Verdict.UNKNOWN, BETWEEN_RANGES)
+        return Judgement(verdict)
 
     # 성별 분기가 있는 항목. 환자 성별을 모르므로 남녀 판정이 같을 때만 확정한다
     by_gender = {g: _first_match(x, {v: r.get(g, r.get(ANY, [])) for v, r in rules.items()}) for g in GENDERS}
     if len(set(by_gender.values())) == 1:
-        return Judgement(by_gender["남"], by_gender=by_gender)
+        verdict = by_gender["남"]
+        note = BETWEEN_RANGES if verdict is Verdict.UNKNOWN else None
+        return Judgement(verdict, note, by_gender=by_gender)
     detail = ", ".join(f"{g} {v.value}" for g, v in by_gender.items())
     return Judgement(Verdict.UNKNOWN, f"성별에 따라 판정이 다름 ({detail})", by_gender=by_gender)
 

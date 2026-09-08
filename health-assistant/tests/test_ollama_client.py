@@ -67,3 +67,27 @@ async def test_missing_model_tells_how_to_pull():
 
     with pytest.raises(LLMUnavailable, match="ollama pull qwen2.5:7b"):
         await make_client(handler).generate("q", system="s")
+
+
+async def test_server_error_becomes_llm_unavailable_with_ollama_detail():
+    def handler(request):
+        return httpx.Response(500, json={"error": "model requires more system memory"})
+
+    with pytest.raises(LLMUnavailable, match="HTTP 500.*more system memory"):
+        await make_client(handler).generate("q", system="s")
+
+
+async def test_dropped_connection_becomes_llm_unavailable():
+    def handler(request):
+        raise httpx.ReadError("connection reset")
+
+    with pytest.raises(LLMUnavailable, match="연결이 끊겼습니다"):
+        await make_client(handler).generate("q", system="s")
+
+
+async def test_non_json_body_becomes_llm_unavailable():
+    def handler(request):
+        return httpx.Response(200, text="<html>proxy error</html>")
+
+    with pytest.raises(LLMUnavailable, match="JSON이 아닙니다"):
+        await make_client(handler).generate("q", system="s")

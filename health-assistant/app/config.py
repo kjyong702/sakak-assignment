@@ -13,7 +13,6 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:7b"
     ollama_timeout_seconds: float = 120.0
-    health_api_base_url: str = "http://localhost:8000"
     data_dir: Path = ROOT / "data" / "patients"
 
 

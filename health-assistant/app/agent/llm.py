@@ -60,13 +60,27 @@ class OllamaGenerateClient:
             ) from e
         except httpx.TimeoutException as e:
             raise LLMUnavailable(f"Ollama 응답이 {self._timeout:.0f}초 안에 오지 않았습니다.") from e
+        except httpx.TransportError as e:
+            # 생성 중 연결이 끊기는 경우(ReadError, RemoteProtocolError 등). 모델이 메모리 부족으로
+            # 죽으면 이렇게 보인다
+            raise LLMUnavailable(
+                f"Ollama와 통신 중 연결이 끊겼습니다 ({type(e).__name__}). "
+                "서버 로그와 메모리 상태를 확인하세요."
+            ) from e
         model_name = payload["model"]
         if response.status_code == 404:
             raise LLMUnavailable(
                 f"모델을 찾을 수 없습니다: {model_name}. 'ollama pull {model_name}'로 받으세요."
             )
-        response.raise_for_status()
-        body = response.json()
+        if response.status_code >= 400:
+            raise LLMUnavailable(
+                f"Ollama가 요청을 처리하지 못했습니다 (HTTP {response.status_code}): "
+                f"{_error_detail(response)}"
+            )
+        try:
+            body = response.json()
+        except ValueError as e:
+            raise LLMUnavailable("Ollama 응답이 JSON이 아닙니다. 서버 버전과 주소를 확인하세요.") from e
         return LLMResponse(
             text=body.get("response", "").strip(),
             model=body.get("model", payload["model"]),
@@ -76,3 +90,12 @@ class OllamaGenerateClient:
 
     async def aclose(self) -> None:
         await self._http.aclose()
+
+
+def _error_detail(response: httpx.Response) -> str:
+    """Ollama는 오류를 {"error": "..."}로 준다. 아니면 본문 앞부분을 그대로 보여 준다."""
+    try:
+        detail = response.json().get("error")
+    except ValueError:
+        detail = None
+    return detail or response.text[:200] or "본문 없음"
