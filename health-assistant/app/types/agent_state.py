@@ -1,6 +1,6 @@
 from typing import TypedDict
 
-from app.health.models import HealthData
+from app.schemas.health import HealthData
 
 
 class AgentState(TypedDict, total=False):

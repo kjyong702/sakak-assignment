@@ -1,26 +1,20 @@
-"""LangGraph 워크플로.
-
-START -> fetch_health -> select_metrics -> build_context -> generate_answer -> verify_answer -> END
-                                                                 ^                    |
-                                                                 +--- 재생성 (최대 max_attempts) ---+
-LLM을 부르는 노드는 generate_answer 하나다. 나머지는 결정적이라 테스트가 쉽고 답이 흔들리지 않는다.
-"""
+"""LangGraph 워크플로. 조회, 항목 선택, 컨텍스트, 생성, 검증 순이고 검증 실패 시 한 번 재생성한다."""
 
 from __future__ import annotations
 
 from langgraph.graph import END, START, StateGraph
 
-from app.agent.health_client import HealthApiClient
-from app.agent.llm import LLMClient
-from app.agent.metrics import select_metrics, wants_history
-from app.agent.prompts import SYSTEM_PROMPT, build_prompt, render_context
-from app.agent.state import AgentState
-from app.agent.verify import (
+from app.repositories.health_api import HealthApiClient
+from app.services.llm import LLMClient
+from app.services.metrics import select_metrics, wants_history
+from app.services.prompts import SYSTEM_PROMPT, build_prompt, render_context
+from app.services.verify import (
     foreign_language,
     inconsistent_verdicts,
     unsupported_metrics,
     unsupported_numbers,
 )
+from app.types.agent_state import AgentState
 
 
 def build_graph(health: HealthApiClient, llm: LLMClient, default_model: str, max_attempts: int = 2):
@@ -52,7 +46,7 @@ def build_graph(health: HealthApiClient, llm: LLMClient, default_model: str, max
         reasons = []
         if language := foreign_language(answer):
             reasons.append(language)
-        # 질문에 나온 숫자("130 넘나요?")를 답변이 되풀이하는 것은 환각이 아니다
+        # 질문에 나온 숫자는 아는 수치로 친다
         if bad_numbers := unsupported_numbers(answer, state["context"] + "\n" + state["question"]):
             reasons.append("데이터에 없는 수치: " + ", ".join(bad_numbers))
         if bad_metrics := unsupported_metrics(answer, state.get("metric_keys", [])):

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.agent.graph import build_graph
-from app.agent.health_client import HealthApiClient
-from app.agent.llm import LLMClient
+from app.repositories.health_api import HealthApiClient
+from app.services.graph import build_graph
+from app.services.llm import LLMClient
 
 
 @dataclass(frozen=True)

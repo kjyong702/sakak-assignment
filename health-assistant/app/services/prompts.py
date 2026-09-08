@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from app.agent.metrics import LABELS
-from app.health.models import METRIC_KEYS, HealthData, Reference
-from app.health.reference import Judgement, Verdict, judge_all
+from app.schemas.health import METRIC_KEYS, HealthData, Reference
+from app.services.metrics import LABELS
+from app.services.reference import Judgement, Verdict, judge_all
 
 SYSTEM_RULES = (
     "제공된 검진 데이터만 근거로 답합니다. 데이터에 없는 항목이나 수치는 말하지 않습니다.",
@@ -34,7 +34,7 @@ RETRY_TEMPLATE = (
 
 REFERENCE_TYPES = ("정상(A)", "정상(B)", "질환의심")
 
-# 전체 요약에 항상 넣는 핵심 항목. 주의 항목(정상(B), 질환의심)은 여기 없어도 항상 들어간다
+# 전체 요약에 항상 넣는 핵심 항목. 주의 항목은 여기 없어도 들어간다
 KEY_METRICS = frozenset(
     {
         "BMI",
@@ -57,12 +57,7 @@ def build_prompt(context: str, question: str, retry_reason: str | None = None) -
 
 
 def render_context(data: HealthData, metric_keys: list[str], include_previous: bool = False) -> str:
-    """선택한 항목의 값, 단위, 참고치, 코드가 계산한 판정을 LLM이 읽을 텍스트로 만든다.
-
-    항목을 지정하지 않은 전체 요약에서는 주의 항목과 핵심 항목만 줄로 보여 주고 나머지는 각주로 알린다.
-    판정된 항목 16개를 전부 주면 7b 모델이 전부 나열하다 판정을 잘못 읽는 일이 생겼고, 보류 항목을
-    주면 그것을 요약의 중심에 세웠다. 항목을 직접 물으면 보류 항목까지 그대로 보여 준다.
-    """
+    """검진 데이터를 LLM이 읽을 컨텍스트로 만든다. 전체 요약은 주의 항목과 핵심 항목만"""
     overviews = sorted(data.overviewList, key=lambda o: o.checkupDate, reverse=True)
     if not overviews:
         return f"환자 이름: {data.patientName}\n검진 기록이 없습니다."
@@ -84,9 +79,7 @@ def render_context(data: HealthData, metric_keys: list[str], include_previous: b
         ]
         judgements = judge_all(overview, data.referenceList)
         if summary:
-            # 주의 항목과 정상 항목을 블록으로 나눠 준다. 한 목록으로 주면 7b 모델이
-            # 정상(B) 항목을 "모두 정상(A)"로 묶어 버리는 일이 잦았다.
-            # 묶을 대상을 물리적으로 떼어 놓는 편이 규칙보다 잘 듣는다
+            # 주의 항목과 정상 항목을 블록으로 나눈다. 한 목록이면 모델이 묶어 버린다
             attention, normal, other_normal = [], [], []
             for key in keys:
                 verdict = judgements[key].verdict
@@ -108,8 +101,7 @@ def render_context(data: HealthData, metric_keys: list[str], include_previous: b
         else:
             for key in keys:
                 lines.append(_metric_line(key, getattr(overview, key), by_type, judgements[key]))
-        # 판정하지 않은 항목(unjudged)은 요약에 적지 않는다. 적어 주면 모델이 그것을 설명하느라
-        # 문장을 낭비하고 성별 이야기를 지어냈다. 직접 물으면 성별별 판정까지 그대로 보여 준다
+        # 판정하지 않은 항목은 요약에 적지 않는다. 직접 물으면 그대로 보여 준다
     if no_previous:
         lines += ["", "이전 검진 기록: 없음. 비교할 이전 검진이 없으므로 변화를 말할 수 없다"]
     lines += [

@@ -11,10 +11,10 @@ import argparse
 import asyncio
 import sys
 
-from app.agent.health_client import PatientNotFound
-from app.agent.llm import LLMUnavailable
-from app.agent.service import AnswerResult, HealthAssistant
 from app.main import create_app
+from app.repositories.health_api import PatientNotFound
+from app.services.assistant import AnswerResult, HealthAssistant
+from app.services.llm import LLMUnavailable
 
 
 def format_result(result: AnswerResult) -> str:

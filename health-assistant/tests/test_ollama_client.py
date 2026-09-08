@@ -3,7 +3,7 @@ import json
 import httpx
 import pytest
 
-from app.agent.llm import LLMUnavailable, OllamaGenerateClient
+from app.services.llm import LLMUnavailable, OllamaGenerateClient
 
 
 def make_client(handler):

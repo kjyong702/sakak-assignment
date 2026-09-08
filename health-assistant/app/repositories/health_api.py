@@ -2,7 +2,7 @@
 
 import httpx
 
-from app.health.models import HealthData, HealthResponse
+from app.schemas.health import HealthData, HealthResponse
 
 
 class PatientNotFound(LookupError):
@@ -17,7 +17,7 @@ class HealthApiError(RuntimeError):
 
 class HealthApiClient:
     def __init__(self, http: httpx.AsyncClient) -> None:
-        # base_url은 http 클라이언트가 가진다. 테스트는 ASGITransport로 서버 없이 같은 경로를 탄다
+        # base_url은 http 클라이언트가 가진다
         self._http = http
 
     async def get(self, patient_id: str) -> HealthData:

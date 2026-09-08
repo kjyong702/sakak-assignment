@@ -9,7 +9,7 @@ import httpx
 
 
 class LLMUnavailable(RuntimeError):
-    """Ollama에 연결할 수 없거나 모델이 없을 때. 사용자에게 그대로 보여 줄 메시지를 담는다."""
+    """Ollama 호출 실패. 메시지는 사용자에게 그대로 보여 준다"""
 
 
 @dataclass(frozen=True)
@@ -61,8 +61,7 @@ class OllamaGenerateClient:
         except httpx.TimeoutException as e:
             raise LLMUnavailable(f"Ollama 응답이 {self._timeout:.0f}초 안에 오지 않았습니다.") from e
         except httpx.TransportError as e:
-            # 생성 중 연결이 끊기는 경우(ReadError, RemoteProtocolError 등). 모델이 메모리 부족으로
-            # 죽으면 이렇게 보인다
+            # 생성 중 연결 끊김 (모델이 메모리 부족으로 죽는 경우 등)
             raise LLMUnavailable(
                 f"Ollama와 통신 중 연결이 끊겼습니다 ({type(e).__name__}). "
                 "서버 로그와 메모리 상태를 확인하세요."

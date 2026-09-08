@@ -22,9 +22,9 @@ from pathlib import Path
 # 파일 경로로 직접 실행해도 app 패키지를 찾도록 프로젝트 루트를 경로에 넣는다
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.agent.llm import LLMUnavailable  # noqa: E402
-from app.agent.verify import unsupported_numbers  # noqa: E402
 from app.main import create_app  # noqa: E402
+from app.services.llm import LLMUnavailable  # noqa: E402
+from app.services.verify import unsupported_numbers  # noqa: E402
 
 DEFAULT_MODELS = ("qwen2.5:7b", "llama3.1:8b", "gemma3:4b")
 

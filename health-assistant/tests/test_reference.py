@@ -1,7 +1,7 @@
 import pytest
 
-from app.config import settings
-from app.health.reference import (
+from app.repositories import patient
+from app.services.reference import (
     Interval,
     Verdict,
     judge,
@@ -10,12 +10,11 @@ from app.health.reference import (
     parse_by_gender,
     parse_condition,
 )
-from app.health.repository import PatientRepository
 
 
 @pytest.fixture(scope="module")
 def references():
-    data = PatientRepository(settings.data_dir).get("1")
+    data = patient.get("1")
     return {r.refType: r for r in data.referenceList}
 
 
@@ -130,7 +129,7 @@ def test_unreadable_values_do_not_crash(references):
 
 
 def test_judge_all_patient_1_is_normal_except_gender_dependent_and_unreferenced():
-    data = PatientRepository(settings.data_dir).get("1")
+    data = patient.get("1")
 
     verdicts = judge_all(data.overviewList[0], data.referenceList)
 

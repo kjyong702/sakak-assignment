@@ -1,8 +1,7 @@
 from pathlib import Path
 
-from app.config import settings
-from app.health.models import METRIC_KEYS, HealthData
-from app.health.repository import PatientRepository
+from app.repositories import patient
+from app.schemas.health import METRIC_KEYS, HealthData
 
 
 async def test_returns_spec_shape(client):
@@ -45,16 +44,14 @@ async def test_id_with_disallowed_characters_is_not_found(client):
 
 def test_repository_rejects_path_like_ids(tmp_path: Path):
     (tmp_path / "secret.json").write_text("{}", encoding="utf-8")
-    repo = PatientRepository(tmp_path / "patients")
+    data_dir = tmp_path / "patients"
 
-    assert repo.get("../secret") is None
-    assert repo.get("..") is None
+    assert patient.get("../secret", data_dir) is None
+    assert patient.get("..", data_dir) is None
 
 
 def test_every_patient_file_matches_schema():
-    repo = PatientRepository(settings.data_dir)
-
-    ids = repo.ids()
+    ids = patient.list_ids()
     assert ids == ["1", "2"]
     for patient_id in ids:
-        assert isinstance(repo.get(patient_id), HealthData)
+        assert isinstance(patient.get(patient_id), HealthData)

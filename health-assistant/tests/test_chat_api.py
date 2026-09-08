@@ -1,9 +1,9 @@
 import httpx
 
-from app.agent.llm import LLMUnavailable
-from app.agent.service import AnswerResult
 from app.chat import format_result
 from app.main import create_app
+from app.services.assistant import AnswerResult
+from app.services.llm import LLMUnavailable
 from tests.fakes import FakeLLM
 
 

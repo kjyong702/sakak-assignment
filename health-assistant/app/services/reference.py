@@ -1,9 +1,4 @@
-"""참고치 문자열을 파싱해 측정값을 판정한다.
-
-참고치는 자유 문자열이라 자주 나오는 형태만 규칙으로 잡는다. 규칙 밖 문자열은 판정하지 않고
-그대로 보여 준다. 잘못된 판정보다 판정 없음이 낫다. 판정 순서는 질환의심, 정상(B), 정상(A)로
-겹치는 구간이 있으면 더 조심스러운 쪽이 이긴다.
-"""
+"""참고치 문자열을 파싱해 측정값을 판정한다. 판정 순서는 질환의심, 정상(B), 정상(A)"""
 
 from __future__ import annotations
 
@@ -11,7 +6,7 @@ import re
 from dataclasses import dataclass
 from enum import StrEnum
 
-from app.health.models import METRIC_KEYS, Overview, Reference
+from app.schemas.health import METRIC_KEYS, Overview, Reference
 
 
 class Verdict(StrEnum):
@@ -69,11 +64,7 @@ class Interval:
 
 
 def parse_condition(text: str) -> list[Interval]:
-    """'100미만', '18.5-24.9', '18.5미만/25~29.9' 같은 문자열을 구간 목록(OR)으로 바꾼다.
-
-    한 조각이라도 못 읽으면 빈 목록을 돌려 판정에 쓰지 않는다. '-1~-2.5 초과'처럼 '초과'가
-    붙은 구간은 양 끝을 열린 구간으로 본다.
-    """
+    """참고치 문자열을 구간 목록(OR)으로 바꾼다. 못 읽으면 빈 목록"""
     text = text.replace("T-score", "").strip()
     if not text:
         return []
@@ -174,8 +165,7 @@ def _judge_numeric(metric: str, value: str, references: dict[str, Reference]) ->
     if all(set(r) == {ANY} for r in rules.values()):
         verdict = _first_match(x, {v: r[ANY] for v, r in rules.items()})
         if verdict is Verdict.UNKNOWN:
-            # 참고치 표에 빈 구간이 있다 (LDL 140~159, 소수점 경계 등). 사유 없는 판정 없음은
-            # 프롬프트가 성별 문제로 오해하므로 이유를 붙인다
+            # 참고치 표의 빈 구간 (LDL 140~159 등)
             return Judgement(Verdict.UNKNOWN, BETWEEN_RANGES)
         return Judgement(verdict)
 

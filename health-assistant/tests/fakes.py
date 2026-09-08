@@ -1,4 +1,4 @@
-from app.agent.llm import LLMResponse
+from app.services.llm import LLMResponse
 
 
 class FakeLLM:

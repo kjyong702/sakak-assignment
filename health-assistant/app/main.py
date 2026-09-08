@@ -1,34 +1,31 @@
-"""FastAPI 앱. Mock API와 채팅 엔드포인트를 한 프로세스에서 띄운다."""
-
-from contextlib import asynccontextmanager
+from __future__ import annotations
 
 import httpx
 from fastapi import FastAPI
 
-from app.agent.health_client import HealthApiClient
-from app.agent.llm import LLMClient, OllamaGenerateClient
-from app.agent.router import router as chat_router
-from app.agent.service import HealthAssistant
-from app.config import settings
-from app.health.repository import PatientRepository
-from app.health.router import router as health_router
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    yield
-    await app.state.health_http.aclose()
-    if hasattr(app.state.llm, "aclose"):
-        await app.state.llm.aclose()
+from app.core.lifespan import lifespan_context
+from app.core.settings import get_settings
+from app.repositories.health_api import HealthApiClient
+from app.routers.chat import router as chat
+from app.routers.health import router as health
+from app.services.assistant import HealthAssistant
+from app.services.llm import LLMClient, OllamaGenerateClient
 
 
 def create_app(llm: LLMClient | None = None) -> FastAPI:
-    app = FastAPI(title="Health Checkup AI Assistant", version="0.1.0", lifespan=lifespan)
-    app.state.repository = PatientRepository(settings.data_dir)
-    app.include_router(health_router)
+    settings = get_settings()
 
-    # 에이전트는 Mock API를 HTTP 계층을 통해 읽는다. 같은 프로세스 안이라 네트워크를 타지 않고
-    # ASGI로 직접 부르지만 라우터, 직렬화, 404 처리는 실제 요청과 같은 경로다
+    app = FastAPI(
+        title=settings.app_name,
+        version=settings.app_version,
+        lifespan=lifespan_context,
+    )
+
+    # Routers
+    app.include_router(health)
+    app.include_router(chat)
+
+    # 에이전트가 Mock API를 읽는 HTTP 클라이언트. 같은 프로세스의 ASGI 앱을 직접 부른다
     app.state.health_http = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://app")
     app.state.llm = llm or OllamaGenerateClient(
         settings.ollama_base_url, settings.ollama_model, settings.ollama_timeout_seconds
@@ -36,7 +33,6 @@ def create_app(llm: LLMClient | None = None) -> FastAPI:
     app.state.assistant = HealthAssistant(
         HealthApiClient(app.state.health_http), app.state.llm, settings.ollama_model
     )
-    app.include_router(chat_router)
     return app
 
 

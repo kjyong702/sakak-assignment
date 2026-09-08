@@ -39,8 +39,7 @@ METRICS: tuple[Metric, ...] = (
 
 LABELS = {m.key: m.label for m in METRICS}
 
-# 이전 검진과 비교해 달라는 뜻으로 읽는 말. "비교"나 "변화"만으로는 잡지 않는다.
-# "정상 범위와 비교하면", "생활 습관 변화가 필요한가요" 같은 질문이 걸리기 때문이다
+# 이전 검진과 비교해 달라는 뜻으로 읽는 말. "비교", "변화"만으로는 잡지 않는다
 HISTORY_WORDS = (
     "이전 검진",
     "지난 검진",
@@ -65,19 +64,19 @@ HISTORY_WORDS = (
     "줄었",
 )
 
-# 한 글자 키워드 뒤에 올 수 있는 조사. "간은 괜찮나요"는 잡고 "간단히 요약"은 걸리지 않게
+# 한 글자 키워드 뒤에 올 수 있는 조사
 _PARTICLES = "은는이가도를을의와과에로만"
 
 
 def _matches(question: str, keyword: str) -> bool:
     if len(keyword) == 1:
-        # 앞은 단어 시작이어야 하고("시간"의 간 제외), 뒤는 조사나 공백이나 문장 끝이어야 한다
+        # 앞은 단어 시작, 뒤는 조사나 공백이나 문장 끝
         return (
             re.search(rf"(?<![가-힣a-z0-9]){re.escape(keyword)}(?=[{_PARTICLES}\s?!.,]|$)", question)
             is not None
         )
     if keyword.isascii():
-        # 영문 약어는 단어 경계로 본다. "health"의 alt에 걸리지 않게
+        # 영문 약어는 단어 경계로 본다
         return re.search(rf"(?<![a-z]){re.escape(keyword)}(?![a-z])", question) is not None
     return keyword in question
 

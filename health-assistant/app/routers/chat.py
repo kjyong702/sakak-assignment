@@ -1,45 +1,16 @@
-"""POST /api/chat"""
+from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, field_validator
 
-from app.agent.health_client import HealthApiError, PatientNotFound
-from app.agent.llm import LLMUnavailable
-from app.agent.service import HealthAssistant
+from app.repositories.health_api import HealthApiError, PatientNotFound
+from app.schemas.chat import ChatRequest, ChatResponse
+from app.services.assistant import HealthAssistant
+from app.services.llm import LLMUnavailable
 
-router = APIRouter(prefix="/api/chat", tags=["chat"])
-
-
-class ChatRequest(BaseModel):
-    patientId: str = Field(min_length=1, max_length=64, examples=["1"])
-    question: str = Field(min_length=1, max_length=500, examples=["최근 건강검진 결과는 어때요?"])
-    # Ollama 모델 이름 형식만 허용한다 (예: qwen2.5:7b, hf.co/org/model:tag)
-    model: str | None = Field(
-        default=None, max_length=100, pattern=r"^[A-Za-z0-9._:/-]+$", description="비우면 서버 기본 모델"
-    )
-
-    @field_validator("question")
-    @classmethod
-    def question_must_have_text(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("질문이 비어 있습니다")
-        return value.strip()
-
-
-class ChatResponse(BaseModel):
-    status: Literal["success"] = "success"
-    answer: str
-    patientName: str
-    checkupDate: str | None
-    metrics: list[str]
-    verified: bool
-    verification: str | None = Field(default=None, description="검증에 걸렸을 때 그 사유")
-    attempts: int
-    model: str
-    llmMs: float
+router = APIRouter(prefix="/api", tags=["chat"])
 
 
 def get_assistant(request: Request) -> HealthAssistant:
@@ -50,7 +21,9 @@ Assistant = Annotated[HealthAssistant, Depends(get_assistant)]
 
 
 @router.post(
-    "",
+    "/chat",
+    summary="건강검진 Q&A",
+    description="건강검진 데이터를 근거로 사용자 질문에 답합니다. Ollama 로컬 LLM을 사용합니다.",
     response_model=ChatResponse,
     responses={
         404: {"description": "환자 없음"},

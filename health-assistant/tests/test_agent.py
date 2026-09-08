@@ -1,17 +1,17 @@
 import httpx
 import pytest
 
-from app.agent.graph import build_graph
-from app.agent.health_client import HealthApiClient, PatientNotFound
-from app.agent.metrics import select_metrics, wants_history
-from app.agent.prompts import SYSTEM_PROMPT, build_prompt, render_context
-from app.agent.verify import (
+from app.main import create_app
+from app.repositories.health_api import HealthApiClient, PatientNotFound
+from app.services.graph import build_graph
+from app.services.metrics import select_metrics, wants_history
+from app.services.prompts import SYSTEM_PROMPT, build_prompt, render_context
+from app.services.verify import (
     foreign_language,
     inconsistent_verdicts,
     unsupported_metrics,
     unsupported_numbers,
 )
-from app.main import create_app
 from tests.fakes import FakeLLM
 
 
