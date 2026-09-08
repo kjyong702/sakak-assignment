@@ -18,6 +18,9 @@ def next_term(term: str) -> str:
 
 def middle_two(n: int) -> str:
     """n번째 항의 가운데 두 자리"""
+    if not 3 < n < 100:
+        raise ValueError("n은 3 < n < 100 범위여야 한다")
+
     term = "1"
     for _ in range(n - 1):
         term = next_term(term)
