@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+"""커밋 메시지가 CLAUDE.md의 커밋 규약을 지키는지 검사한다.
+
+문서에만 있는 규칙은 잊힌다. 되돌리는 비용이 지키는 비용보다 크므로 커밋 시점에 막는다.
+
+설치: git config core.hooksPath .githooks
+"""
+
+import re
+import sys
+from pathlib import Path
+
+TYPES = ("feat", "fix", "refactor", "docs", "test", "config", "chore")
+EXEMPT_PREFIXES = ("Merge ", "Revert ", "fixup!", "squash!")
+EMOJI = re.compile(
+    "[\U0001F300-\U0001FAFF\U00002600-\U000027BF\U0001F000-\U0001F2FF⬀-⯿️]"
+)
+
+
+def check(message: str) -> list[str]:
+    """규약 위반 목록. 비어 있으면 통과."""
+    lines = [ln for ln in message.splitlines() if not ln.startswith("#")]
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    if not lines:
+        return ["커밋 메시지가 비어 있습니다"]
+
+    subject = lines[0]
+    problems = []
+
+    if subject.startswith(EXEMPT_PREFIXES):
+        return []
+
+    if re.search(r"^\s*Co-Authored-By:", message, re.M | re.I):
+        problems.append("AI 공동저자 표기(Co-Authored-By)가 있습니다. 설계와 판단의 책임자는 작성자입니다.")
+
+    for word in ("사용자 판단", "사용자 확인", "사용자 요청", "요청에 따라", "지시대로", "지시에 따라"):
+        if word in message:
+            problems.append(f"자기를 3인칭으로 부르는 표현이 있습니다: {word!r}")
+
+    if "**" in message:
+        problems.append("마크다운 굵게 표기(**)가 있습니다. 커밋 메시지는 평문입니다.")
+
+    if not re.match(rf"^({'|'.join(TYPES)}): .+", subject):
+        problems.append(
+            f"제목이 'type: 요약' 형식이 아닙니다: {subject[:40]!r}. 쓸 수 있는 type: {', '.join(TYPES)}"
+        )
+
+    if EMOJI.search(subject):
+        problems.append("제목에 이모지가 있습니다.")
+
+    if len(lines) > 1 and lines[1].strip():
+        problems.append("제목과 본문 사이에 빈 줄이 필요합니다.")
+
+    return problems
+
+
+def main() -> int:
+    if len(sys.argv) < 2:
+        return 0
+    problems = check(Path(sys.argv[1]).read_text(encoding="utf-8"))
+    if not problems:
+        return 0
+    print("\n커밋 규약 위반 (CLAUDE.md)\n", file=sys.stderr)
+    for i, p in enumerate(problems, 1):
+        print(f"  {i}. {p}", file=sys.stderr)
+    print("\n메시지를 고쳐 다시 커밋하세요. 의도한 예외라면 --no-verify로 건너뜁니다.\n", file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
