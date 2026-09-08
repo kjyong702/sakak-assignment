@@ -13,6 +13,13 @@ def test_next_term_follows_the_table():
     assert next_term("13112221") == "1113213211"
 
 
+def test_next_term_keeps_the_last_run():
+    # 마지막 묶음은 뒤에 다른 숫자가 오지 않아 루프 안에서 기록되지 않는다. 따로 적는지 지킨다
+    assert next_term("2") == "12"
+    assert next_term("111") == "31"
+    assert next_term("1122") == "2122"
+
+
 def test_middle_two_matches_the_examples():
     assert middle_two(5) == "12"
     assert middle_two(8) == "21"
