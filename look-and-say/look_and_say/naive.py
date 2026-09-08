@@ -1,6 +1,6 @@
 def next_term(term: str) -> str:
     """이전 항을 읽어 다음 항을 만든다"""
-    parts = []
+    result = ""
     current = term[0]
     count = 0
 
@@ -8,12 +8,12 @@ def next_term(term: str) -> str:
         if ch == current:
             count += 1
         else:
-            parts.append(str(count) + current)
+            result += str(count) + current
             current = ch
             count = 1
 
-    parts.append(str(count) + current)
-    return "".join(parts)
+    result += str(count) + current
+    return result
 
 
 def middle_two(n: int) -> str:
